@@ -1,2 +1,13 @@
 # pynvdrs
- Selection of helper functions to make NVDRS research, including research leveraging programmatic LLMs, easier and more streamlined. 
+
+Shared utilities extracted from NVDRS-style projects. Install when published:
+
+```
+pip install pynvdrs
+```
+
+Or during development:
+
+```
+pip install -e .
+```
