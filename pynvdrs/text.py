@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import re
+from pathlib import Path
 from importlib import resources
 from typing import Optional
 
@@ -8,24 +11,33 @@ except Exception:  # pragma: no cover
     SymSpell = None
     Verbosity = None
 
+__all__ = [
+    "clean_nvdrs_text",
+    "clean_text",
+    "correct_spelling",
+    "load_symspell",
+    "replace_abbreviations",
+    "replace_abnormal_characters",
+]
+
 
 _ABBREVIATIONS = {
-    "t\.v\.": "television",
-    "t\.v": "television",
-    "h\.i\.v\.": "hiv",
-    "h\.i\.v": "hiv",
-    "i\.v\.": "iv",
-    "i\.v": "iv",
+    r"t\.v\.": "television",
+    r"t\.v": "television",
+    r"h\.i\.v\.": "hiv",
+    r"h\.i\.v": "hiv",
+    r"i\.v\.": "iv",
+    r"i\.v": "iv",
     "i/v": "iv",
     "n/v": "nausea and vomiting",
     "d/v": "domestic violence",
     "dv": "domestic violence",
-    "g\.o\.v\.": "gov",
-    "m\.v\.": "moving vehicle",
-    "m\.v": "moving vehicle",
+    r"g\.o\.v\.": "gov",
+    r"m\.v\.": "moving vehicle",
+    r"m\.v": "moving vehicle",
     "mv": "moving vehicle",
-    "r\.v\.": "rv",
-    "r\.v": "rv",
+    r"r\.v\.": "rv",
+    r"r\.v": "rv",
     "r/v": "rv",
     "v": "Victim",
     "vs": "victims",
@@ -57,13 +69,12 @@ _ABBREVIATIONS = {
     "h/m/": "hispanic male ",
     "h/f/": "hispanic female ",
     "a/m/": "asian male ",
-    "a/m/": "asian female ",
+    "a/f/": "asian female ",
     "wm": "white male",
     "w/m": "white male",
     "w/f": "white female",
     "bm": "black male",
     "b/m": "black male",
-    "b/f": "black female",
     "h/m": "hispanic male",
     "h/f": "hispanic female",
     "a/m": "asian male",
@@ -73,16 +84,29 @@ _ABBREVIATIONS = {
 }
 
 
-def load_symspell(max_dictionary_edit_distance: int = 1, prefix_length: int = 7) -> Optional[object]:
-    """Lazily load SymSpell dictionary from `symspellpy` package resources.
+def load_symspell(
+    dictionary_path: str | Path | None = None,
+    max_dictionary_edit_distance: int = 1,
+    prefix_length: int = 7,
+) -> Optional[object]:
+    """Lazily load SymSpell dictionary from package resources or a custom path.
 
     Returns a SymSpell instance or None if `symspellpy` not installed.
     """
     if SymSpell is None:
         return None
 
-    sym = SymSpell(max_dictionary_edit_distance=max_dictionary_edit_distance, prefix_length=prefix_length)
-    dict_path = resources.files("symspellpy").joinpath("frequency_dictionary_en_82_765.txt")
+    sym = SymSpell(
+        max_dictionary_edit_distance=max_dictionary_edit_distance,
+        prefix_length=prefix_length,
+    )
+    if dictionary_path is None:
+        dict_path = resources.files("symspellpy").joinpath(
+            "frequency_dictionary_en_82_765.txt"
+        )
+    else:
+        dict_path = Path(dictionary_path)
+
     sym.load_dictionary(str(dict_path), term_index=0, count_index=1)
     return sym
 
@@ -159,11 +183,17 @@ def correct_spelling(text: str, symspell=None) -> str:
 def clean_nvdrs_text(text: str, symspell=None) -> str:
     text = str(text)
     text = replace_abnormal_characters(text)
-    text = re.sub(r"[^a-zA-Z0-9 ,./<>?;:\\"'~!@#$%&^*()\[\]{}_+=\-]", " ", text)
+    text = re.sub(r'[^a-zA-Z0-9 ,./<>?;:"\'~!@#$%&^*()\[\]{}_+=\-]', " ", text)
     text = replace_abbreviations(text)
     text = correct_spelling(text, symspell=symspell)
-    text = re.sub("([a-zA-Z]{2,})\.([a-zA-Z]{1,})", "\\1. \\2", text)
+    text = re.sub(r"([a-zA-Z]{2,})\.([a-zA-Z]{1,})", r"\1. \2", text)
     text = " ".join([w for w in text.split(" ") if w != "" and w != " "])
     text = re.sub(" +", " ", text)
     return text.strip()
+
+
+def clean_text(text: str, symspell=None) -> str:
+    """Backward-compatible alias for :func:`clean_nvdrs_text`."""
+
+    return clean_nvdrs_text(text, symspell=symspell)
 

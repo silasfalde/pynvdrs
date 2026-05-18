@@ -1,8 +1,49 @@
+from __future__ import annotations
+
+import json
 import os
 import time
-import json
-from typing import Any, Optional, Dict, Tuple
+from dataclasses import dataclass
+from typing import Any, Optional, Tuple
 
+__all__ = ["GPTClient", "generate_response", "parse_response"]
+
+
+@dataclass(slots=True)
+class GPTClient:
+    """Small wrapper around a chat-completions client.
+
+    The wrapper keeps the package agnostic to a specific OpenAI-compatible SDK.
+    Provide any object exposing ``chat.completions.create``.
+    """
+
+    client: Any | None = None
+    model: Optional[str] = None
+
+    def generate(
+        self,
+        context: str,
+        prompt: str,
+        narrative: str,
+        type_string: str = "json_object",
+        timeout_seconds: int = 30,
+        max_retries: int = 3,
+    ) -> str | None:
+        """Generate a response using the configured client."""
+
+        if self.client is None:
+            raise ValueError("GPTClient.generate requires a configured client.")
+
+        return generate_response(
+            self.client,
+            context,
+            prompt,
+            narrative,
+            model=self.model,
+            type_string=type_string,
+            timeout_seconds=timeout_seconds,
+            max_retries=max_retries,
+        )
 
 def generate_response(
     client: Any,
@@ -19,7 +60,13 @@ def generate_response(
     `client` should provide a `chat.completions.create` or similar API. `model`
     can be provided explicitly or will be read from `MODEL` env var if available.
     """
+    if client is None:
+        raise ValueError("client is required")
+
     model = model or os.environ.get("MODEL")
+    if not model:
+        raise ValueError("model must be provided or set via the MODEL environment variable")
+
     messages = [
         {"role": "system", "content": context},
         {"role": "user", "content": prompt + "\n" + narrative},

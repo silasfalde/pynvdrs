@@ -1,14 +1,51 @@
-"""
-Annotation utilities: disagreements, IAA, model performance, sampling helpers, and resolution helpers.
-"""
+"""Annotation utilities for disagreement review, IAA, model scoring, and resolution."""
 
-import pandas as pd
+from __future__ import annotations
+
+import warnings
 from itertools import combinations
 from typing import List
-import warnings
+
+import pandas as pd
+
+__all__ = [
+    "IAA",
+    "disagreements",
+    "find_disagreements",
+    "model_performance",
+    "resolve_disagreements",
+    "sample",
+]
+
+
+def _require_krippendorff():
+    try:
+        import krippendorff
+    except ImportError as exc:  # pragma: no cover - optional dependency
+        raise RuntimeError("Install pynvdrs[iaa] to use IAA utilities.") from exc
+
+    return krippendorff
+
+
+def _require_sklearn_metrics():
+    try:
+        from sklearn.metrics import cohen_kappa_score, hamming_loss, precision_recall_fscore_support
+    except ImportError as exc:  # pragma: no cover - optional dependency
+        raise RuntimeError("Install pynvdrs[iaa] to use annotation metrics.") from exc
+
+    return cohen_kappa_score, hamming_loss, precision_recall_fscore_support
+
+
+def _set_future_downcasting_option() -> None:
+    return None
 
 
 def disagreements(annotations: pd.DataFrame) -> pd.DataFrame:
+    """Return row-level annotation disagreements for a MultiIndex DataFrame."""
+
+    if not isinstance(annotations.index, pd.MultiIndex) or annotations.index.nlevels < 2:
+        raise ValueError("annotations must use a MultiIndex with PersonID and Annotator levels.")
+
     id_col = str(annotations.index.names[0])
     annotator_col = str(annotations.index.names[1])
 
@@ -55,8 +92,16 @@ def disagreements(annotations: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
+def find_disagreements(annotations: pd.DataFrame) -> pd.DataFrame:
+    """Backward-compatible alias for :func:`disagreements`."""
+
+    return disagreements(annotations)
+
+
 def IAA(annotations: pd.DataFrame, metrics: List[str] | None = None) -> pd.DataFrame:
-    pd.set_option("future.no_silent_downcasting", True)
+    """Compute inter-annotator agreement metrics for each code."""
+
+    _set_future_downcasting_option()
     codes = list(annotations.columns)
     iaa = pd.DataFrame({"Code": codes}).set_index("Code")
 
@@ -71,10 +116,12 @@ def IAA(annotations: pd.DataFrame, metrics: List[str] | None = None) -> pd.DataF
     }
 
     for metric in metrics:
+        if metric not in metric_names:
+            raise ValueError(f"Unsupported metric: {metric}")
         iaa[metric_names[metric]] = None
 
     if "krippendorff" in metrics:
-        import krippendorff
+        krippendorff = _require_krippendorff()
 
         alphas = {}
 
@@ -110,7 +157,7 @@ def IAA(annotations: pd.DataFrame, metrics: List[str] | None = None) -> pd.DataF
         iaa[metric_names["krippendorff"]] = iaa.index.map(alphas)
 
     if "cohen" in metrics:
-        from sklearn.metrics import cohen_kappa_score as cohen_score
+        cohen_score, _, _ = _require_sklearn_metrics()
 
         cohens = {}
 
@@ -206,7 +253,9 @@ def model_performance(
     human_annotations: pd.Series | pd.DataFrame,
     one_hot_encode: bool = False,
 ) -> pd.DataFrame:
-    from sklearn.metrics import hamming_loss, precision_recall_fscore_support
+    """Compare model annotations against human annotations."""
+
+    _, hamming_loss, precision_recall_fscore_support = _require_sklearn_metrics()
 
     def _binary_prevalence(series: pd.Series) -> float:
         values = series.dropna()
@@ -279,7 +328,6 @@ def model_performance(
                         float("nan"),
                         float("nan"),
                         float("nan"),
-                        float("nan"),
                     ]
                 )
                 continue
@@ -344,6 +392,8 @@ def sample(
     overlap_proportion: float,
     cases: pd.DataFrame,
 ) -> pd.DataFrame:
+    """Sample overlapping annotator assignments from a case pool."""
+
     import numpy as np
 
     overlap_n = int(cases_per_annotator * overlap_proportion)
@@ -405,7 +455,9 @@ def sample(
     return pd.concat(annotator_samples).reset_index()
 
 
-def resolve_disagreements(df, revisions):
+def resolve_disagreements(df: pd.DataFrame, revisions: pd.DataFrame) -> pd.DataFrame:
+    """Apply revision rows to a disagreement table."""
+
     required_cols = {
         "Code",
         "Annotator 1",

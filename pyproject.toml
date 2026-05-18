@@ -1,19 +1,31 @@
 [project]
 name = "pynvdrs"
-version = "0.0.1"
+version = "0.1.0"
 description = "Shared utilities for NVDRS-style projects (paths, text cleaning, annotation helpers, GPT wrapper)."
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
 requires-python = ">=3.9"
 
-[project.dependencies]
-pandas = "*"
-numpy = "*"
+dependencies = [
+	"numpy",
+	"pandas",
+]
 
 [project.optional-dependencies]
 gpt = ["openai>=1.0.0"]
-text = ["symspellpy>=0.6.0"]
+text = ["symspellpy>=0.7.0"]
+iaa = ["krippendorff>=0.7.0", "scikit-learn>=1.3.0"]
 
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pynvdrs*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

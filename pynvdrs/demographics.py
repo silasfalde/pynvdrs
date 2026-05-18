@@ -1,16 +1,42 @@
-"""Demographics helper functions and a loader that can process a NVDRS cases CSV.
+"""Demographics helper functions and a loader for NVDRS cases CSV files."""
 
-This module intentionally avoids loading a dataset at import time; call `load_demographics`
-with a path to the cases CSV to obtain processed and raw DataFrames.
-"""
+from __future__ import annotations
 
-from typing import Optional, Tuple
-import pandas as pd
-import numpy as np
 import re
+from os import PathLike
+from typing import Optional, Tuple
+
+import numpy as np
+import pandas as pd
+
+__all__ = [
+    "bin_age",
+    "get_processed_demographics",
+    "get_raw_demographics",
+    "load_demographics",
+]
 
 
 PR_REGEX = re.compile(r"puerto ?ric[ao]", re.IGNORECASE)
+
+DEFAULT_DEMOGRAPHIC_FEATURES = [
+    "AgeYears_c",
+    "Sex",
+    "Race_c",
+    "Ethnicity",
+    "SiteID",
+    "RaceEthnicity_c",
+    "MaritalStatus",
+    "EducationLevel",
+    "HousingInstability",
+    "OccupationText_DC",
+    "OccupationCurrentText",
+    "SexualOrientation",
+    "InjuryDate",
+    "InjuryLocationType",
+]
+
+DEFAULT_PR_ORIGIN_FEATURES = ["BirthPlace", "NarrativeCME", "NarrativeLE"]
 
 
 def _bin_employment(row: pd.Series) -> str:
@@ -75,29 +101,18 @@ def bin_age(age: Optional[int]) -> str:
     return "65+"
 
 
-def load_demographics(cases_csv: str | pd.PathLike) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def load_demographics(
+    cases_csv: str | PathLike[str],
+    demographic_features: list[str] | None = None,
+    pr_origin_features: list[str] | None = None,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Load and return (processed_data, raw_data) derived from a NVDRS cases CSV.
 
     This mirrors the processing done in the original project but requires an explicit
     `cases_csv` path so the package is not tied to a single repository layout.
     """
-    demographic_features = [
-        "AgeYears_c",
-        "Sex",
-        "Race_c",
-        "Ethnicity",
-        "SiteID",
-        "RaceEthnicity_c",
-        "MaritalStatus",
-        "EducationLevel",
-        "HousingInstability",
-        "OccupationText_DC",
-        "OccupationCurrentText",
-        "SexualOrientation",
-        "InjuryDate",
-        "InjuryLocationType",
-    ]
-    pr_origin_features = ["BirthPlace", "NarrativeCME", "NarrativeLE"]
+    demographic_features = demographic_features or DEFAULT_DEMOGRAPHIC_FEATURES
+    pr_origin_features = pr_origin_features or DEFAULT_PR_ORIGIN_FEATURES
 
     raw_data = pd.read_csv(
         cases_csv,
@@ -108,15 +123,17 @@ def load_demographics(cases_csv: str | pd.PathLike) -> Tuple[pd.DataFrame, pd.Da
         low_memory=False,
     )
 
-    _raw_demographic_data = raw_data[demographic_features].copy()
+    raw_demographic_data = raw_data[demographic_features].copy()
 
     processed_data = raw_data.copy()
     processed_data["AgeYears_c"] = pd.to_numeric(processed_data["AgeYears_c"], errors="coerce")
     processed_data = processed_data[(processed_data["AgeYears_c"] >= 15) & (processed_data["AgeYears_c"] <= 44)]
     processed_data["AgeYears_c"] = processed_data["AgeYears_c"].astype(int)
 
-    pr_origins = processed_data["NarrativeLE"].str.contains(PR_REGEX, na=False) | (
-        processed_data["NarrativeCME"].str.contains(PR_REGEX, na=False)
+    narrative_le = processed_data["NarrativeLE"].fillna("").astype(str)
+    narrative_cme = processed_data["NarrativeCME"].fillna("").astype(str)
+    pr_origins = narrative_le.str.contains(PR_REGEX, na=False) | narrative_cme.str.contains(
+        PR_REGEX, na=False
     )
     processed_data["PR_origin_flag"] = np.select(
         [processed_data["BirthPlace"] == "Puerto Rico", pr_origins],
@@ -176,10 +193,12 @@ def load_demographics(cases_csv: str | pd.PathLike) -> Tuple[pd.DataFrame, pd.Da
 
     processed_data["InjuryLocationType"] = processed_data["InjuryLocationType"].apply(_categorize_injury_location)
 
-    return processed_data, _raw_demographic_data
+    return processed_data, raw_demographic_data
 
 
 def get_raw_demographics(person_id: int, raw_df: pd.DataFrame) -> Optional[pd.Series]:
+    """Return a raw demographics row or an all-NaN row for missing IDs."""
+
     if raw_df is None:
         return None
 
@@ -195,6 +214,8 @@ def get_raw_demographics(person_id: int, raw_df: pd.DataFrame) -> Optional[pd.Se
 
 
 def get_processed_demographics(person_id, processed_df: pd.DataFrame):
+    """Return processed demographics for one or many person IDs."""
+
     if processed_df is None:
         return None
 
