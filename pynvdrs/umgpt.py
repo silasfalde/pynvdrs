@@ -4,12 +4,12 @@ import json
 import os
 import time
 from dataclasses import dataclass
-from typing import Any, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 __all__ = ["GPTClient", "generate_response", "parse_response"]
 
 
-@dataclass(slots=True)
+@dataclass
 class GPTClient:
     """Small wrapper around a chat-completions client.
 
@@ -17,7 +17,7 @@ class GPTClient:
     Provide any object exposing ``chat.completions.create``.
     """
 
-    client: Any | None = None
+    client: Optional[Any] = None
     model: Optional[str] = None
 
     def generate(
@@ -28,7 +28,7 @@ class GPTClient:
         type_string: str = "json_object",
         timeout_seconds: int = 30,
         max_retries: int = 3,
-    ) -> str | None:
+    ) -> Optional[str]:
         """Generate a response using the configured client."""
 
         if self.client is None:
@@ -54,7 +54,7 @@ def generate_response(
     type_string: str = "json_object",
     timeout_seconds: int = 30,
     max_retries: int = 3,
-) -> str | None:
+    ) -> Optional[str]:
     """Prompt a chat-style client and return the response string.
 
     `client` should provide a `chat.completions.create` or similar API. `model`
@@ -96,18 +96,18 @@ def generate_response(
 
 
 def parse_response(
-    txt: str | None,
-    expected_codes: list[str] | dict[str, type | str],
-) -> Tuple[dict[str, Any | None] | None, bool]:
+    txt: Optional[str],
+    expected_codes: Union[List[str], Dict[str, Union[type, str]]],
+) -> Tuple[Optional[Dict[str, Optional[Any]]], bool]:
     """Parse the response text into a dict of expected codes with optional coercion.
 
     Returns (response_dict_or_none, error_flag).
     """
-    response_dict: dict[str, Any | None] = {}
+    response_dict: Dict[str, Optional[Any]] = {}
 
     error_occurred = False
 
-    expected_types: dict[str, type | str] | None
+    expected_types: Optional[Dict[str, Union[type, str]]]
 
     if isinstance(expected_codes, dict):
         expected_types = expected_codes
@@ -116,7 +116,7 @@ def parse_response(
         expected_types = None
         expected_code_list = expected_codes
 
-    def _resolve_expected_type(expected_type: type | str) -> type:
+    def _resolve_expected_type(expected_type: Union[type, str]) -> type:
         if isinstance(expected_type, str):
             normalized_type = expected_type.strip().lower()
             string_type_map: dict[str, type] = {

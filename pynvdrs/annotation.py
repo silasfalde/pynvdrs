@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import warnings
 from itertools import combinations
-from typing import List
+from typing import List, Optional, Union
 
 import pandas as pd
 
@@ -98,7 +98,7 @@ def find_disagreements(annotations: pd.DataFrame) -> pd.DataFrame:
     return disagreements(annotations)
 
 
-def IAA(annotations: pd.DataFrame, metrics: List[str] | None = None) -> pd.DataFrame:
+def IAA(annotations: pd.DataFrame, metrics: Optional[List[str]] = None) -> pd.DataFrame:
     """Compute inter-annotator agreement metrics for each code."""
 
     _set_future_downcasting_option()
@@ -249,8 +249,8 @@ def IAA(annotations: pd.DataFrame, metrics: List[str] | None = None) -> pd.DataF
 
 
 def model_performance(
-    model_annotations: pd.Series | pd.DataFrame,
-    human_annotations: pd.Series | pd.DataFrame,
+    model_annotations: Union[pd.Series, pd.DataFrame],
+    human_annotations: Union[pd.Series, pd.DataFrame],
     one_hot_encode: bool = False,
 ) -> pd.DataFrame:
     """Compare model annotations against human annotations."""

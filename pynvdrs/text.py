@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 from importlib import resources
-from typing import Optional
+from typing import Optional, Union
 
 try:
     from symspellpy import SymSpell, Verbosity
@@ -85,7 +85,7 @@ _ABBREVIATIONS = {
 
 
 def load_symspell(
-    dictionary_path: str | Path | None = None,
+    dictionary_path: Optional[Union[str, Path]] = None,
     max_dictionary_edit_distance: int = 1,
     prefix_length: int = 7,
 ) -> Optional[object]:

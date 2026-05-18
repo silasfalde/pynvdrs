@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Union
 
 try:
     from dotenv import load_dotenv
@@ -24,14 +24,14 @@ __all__ = [
 ]
 
 
-def _resolve_start_path(start_path: Optional[str | Path] = None) -> Path:
+def _resolve_start_path(start_path: Optional[Union[str, Path]] = None) -> Path:
     if start_path is None:
         return Path(__file__).resolve().parent
     return Path(start_path).resolve()
 
 
 def project_root(
-    start_path: Optional[str | Path] = None,
+    start_path: Optional[Union[str, Path]] = None,
     markers: Iterable[str] = ("pyproject.toml", "requirements.txt", ".git"),
 ) -> Path:
     """Return the nearest parent directory that looks like a project root.
@@ -48,7 +48,7 @@ def project_root(
     return path
 
 
-def find_project_root(start_path: Optional[str | Path] = None) -> Path:
+def find_project_root(start_path: Optional[Union[str, Path]] = None) -> Path:
     """Backward-compatible alias for :func:`project_root`."""
 
     return project_root(start_path=start_path)

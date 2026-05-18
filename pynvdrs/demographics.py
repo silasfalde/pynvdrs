@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from os import PathLike
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -102,9 +102,9 @@ def bin_age(age: Optional[int]) -> str:
 
 
 def load_demographics(
-    cases_csv: str | PathLike[str],
-    demographic_features: list[str] | None = None,
-    pr_origin_features: list[str] | None = None,
+    cases_csv: Union[str, PathLike[str]],
+    demographic_features: Optional[List[str]] = None,
+    pr_origin_features: Optional[List[str]] = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Load and return (processed_data, raw_data) derived from a NVDRS cases CSV.
 
